@@ -10,7 +10,7 @@ type Course = {
   time: string;
 };
 
-export default function DashboardPage() {
+export default function CoursesPage() {
   const router = useRouter();
   const [courses] = useState<Course[]>([]);
 
@@ -28,29 +28,61 @@ export default function DashboardPage() {
 
         <Header />
 
-        <h2 className="mt-10 text-lg font-semibold text-gray-700">
-          Ready to start learning?
-        </h2>
+         
+        <div className="mt-8 flex items-center gap-4">
+          <Image
+            src="/course.png"
+            alt="course"
+            width={32}
+            height={32}
+            className="brightness-0 saturate-100 invert-[43%] sepia-[83%] saturate-[600%] hue-rotate-[215deg]"
+         />
 
-        {/* ✅ go to courses */}
-        <button
-          onClick={() => router.push("/courses")}
-          className="mt-4 bg-[#646DE8] text-white px-10 py-4 rounded-2xl flex items-center gap-4 hover:scale-105 transition"
-        >
-          Create course
-          <Image src="/arrow.png" alt="arrow" width={16} height={16} />
-        </button>
+          <h1 className="text-4xl font-bold text-[#646DE8]">Courses</h1>
+        </div>
 
-        <h3 className="mt-10 text-lg font-semibold text-gray-700">
-          Recent Access
-        </h3>
+        <p className="text-gray-500 mt-2 text-sm">
+          Total {courses.length}
+        </p>
 
-        <div className="mt-5 bg-gray-200 rounded-3xl p-8 h-[420px] overflow-y-auto shadow-xl">
+         
+        <div className="mt-8 flex items-center justify-between">
+
+          <button
+            onClick={() => router.push("/courses/create")}
+            className="bg-[#646DE8] text-white px-8 py-3 rounded-2xl flex items-center gap-3 hover:scale-105 transition shadow"
+          >
+            <Image src="/plus.png" alt="plus" width={14} height={14} />
+            Create
+          </button>
+
+          
+          <div className="bg-white rounded-2xl px-5 py-3 shadow flex items-center gap-3 w-[260px]">
+            <Image src="/search.png" alt="search" width={16} height={16} />
+            <input
+              placeholder="Search"
+              className="outline-none text-sm flex-1 bg-transparent"
+            />
+          </div>
+
+        </div>
+
+         
+        <div className="mt-8 bg-gray-200 rounded-3xl p-8 h-[420px] overflow-y-auto shadow-xl">
 
           {courses.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-3">
-              <p className="font-semibold">No courses yet</p>
-              <p className="text-sm">Create your first course 🚀</p>
+            <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-4">
+
+              <Image src="/course.png" alt="empty" width={64} height={64} />
+
+              <p className="font-semibold text-lg">
+                No courses yet
+              </p>
+
+              <p className="text-sm opacity-70">
+                Create your first course 🚀
+              </p>
+
             </div>
           ) : (
             <div className="space-y-6">
@@ -75,9 +107,8 @@ export default function DashboardPage() {
 
 
 
-/* =========================
-   SIDEBAR
-========================= */
+
+
 
 function Sidebar({ onLogout }: { onLogout: () => void }) {
   const router = useRouter();
@@ -92,26 +123,15 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
 
       <nav className="flex flex-col gap-10 w-full text-sm">
 
-        <SidebarItem icon="/home.png" label="Dashboard" />
-
-        {/* ✅ go to courses */}
-        <SidebarItem
-          icon="/course.png"
-          label="Courses"
-          onClick={() => router.push("/courses")}
-        />
-
-        <SidebarItem
-          icon="/profile.png"
-          label="Profile"
-          onClick={() => router.push("/account")}
-        />
+        <SidebarItem icon="/home.png" label="Dashboard" onClick={() => router.push("/dashboard")} />
+        <SidebarItem icon="/course.png" label="Courses" />
+        <SidebarItem icon="/profile.png" label="Profile" onClick={() => router.push("/account")} />
 
       </nav>
 
       <button
         onClick={onLogout}
-        className="mt-auto bg-white text-[#646DE8] rounded-2xl py-3 w-full flex items-center justify-center gap-3 text-sm font-semibold hover:scale-105 transition"
+        className="mt-auto bg-white text-[#646DE8] rounded-2xl py-3 w-full flex items-center justify-center gap-3 font-semibold hover:scale-105 transition"
       >
         <Image src="/logout.png" alt="logout" width={16} height={16} />
         Logout
@@ -148,28 +168,15 @@ function SidebarItem({
 
 
 
-/* =========================
-   HEADER
-========================= */
+
+
 
 function Header() {
   const router = useRouter();
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-end">
 
-      <div className="flex items-center gap-6">
-
-        <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center shadow">
-          <Image src="/user.png" alt="user" width={26} height={26} />
-        </div>
-
-        <h1 className="text-4xl font-bold text-[#646DE8]">
-          Welcome! Roth
-        </h1>
-      </div>
-
-      {/* ✅ FIXED purple + icon visible */}
       <button
         onClick={() => router.push("/account")}
         className="w-12 h-12 rounded-full bg-[#646DE8] shadow-md flex items-center justify-center hover:scale-105 transition"
@@ -177,8 +184,8 @@ function Header() {
         <Image
           src="/profile.png"
           alt="profile"
-          width={20}
-          height={20}
+          width={18}
+          height={18}
           className="invert"
         />
       </button>
@@ -195,9 +202,7 @@ function Header() {
 
 
 
-/* =========================
-   COURSE CARD
-========================= */
+
 
 function CourseCard({ name, time }: Course) {
   return (
