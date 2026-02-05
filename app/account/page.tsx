@@ -3,13 +3,27 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function AccountPage() {
   const router = useRouter();
 
+  const [editing, setEditing] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
   const [username, setUsername] = useState("Roth");
-  const [email, setEmail] = useState("roth@email.com");
+
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user?.email) {
+        setEmail(data.user.email);
+      }
+    };
+    loadUser();
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -19,19 +33,17 @@ export default function AccountPage() {
   return (
     <main className="min-h-screen flex bg-[#F6F7FB]">
 
-      <Sidebar onLogout={handleLogout} />
+      <Sidebar collapsed={collapsed} onLogout={handleLogout} />
 
       <section className="flex-1 px-20 py-10">
 
-        {/* TOP BAR */}
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
 
           <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-600 hover:opacity-80"
+            onClick={() => setCollapsed(!collapsed)}
+            className="bg-white shadow rounded-lg p-2"
           >
-            <Image src="/arrow.png" alt="back" width={18} height={18} className="rotate-180" />
-            Back
+            <Image src="/menu.png" alt="menu" width={18} height={18} />
           </button>
 
           <button
@@ -44,64 +56,105 @@ export default function AccountPage() {
         </div>
 
 
-        {/* TITLE */}
-        <h1 className="text-3xl font-bold text-[#646DE8] mt-8">
+
+        <h1 className="text-4xl font-bold text-[#646DE8] text-center mt-14">
           Account Settings
         </h1>
 
 
-        {/* CARD */}
-        <div className="mt-8 bg-gray-200 rounded-3xl p-12 shadow-xl flex gap-16">
 
-          {/* LEFT FORM */}
-          <div className="flex-1 space-y-8">
+        <div className="flex justify-center mt-12">
 
-            <InputRow
-              label="Username"
-              value={username}
-              onChange={setUsername}
-            />
+          <div className="w-full max-w-5xl bg-gray-200 rounded-3xl p-14 shadow-xl flex items-center justify-between gap-20">
 
-            <InputRow
-              label="Email"
-              value={email}
-              onChange={setEmail}
-            />
+            <div className="flex-1 space-y-10">
 
-            <InputRow
-              label="Password"
-              value="********"
-              type="password"
-              disabled
-            />
+              <div>
+                <p className="text-sm text-[#646DE8] font-medium mb-2">Username</p>
 
-            <div className="flex gap-4 pt-4">
-              <button className="bg-[#646DE8] text-white px-8 py-2 rounded-xl text-sm">
-                Save
-              </button>
+                <div className="flex items-center gap-3 border-b border-gray-400 pb-2">
+                  <input
+                    value={username}
+                    disabled={!editing}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="flex-1 bg-transparent outline-none"
+                  />
 
-              <button
-                onClick={() => router.back()}
-                className="bg-white text-gray-600 px-8 py-2 rounded-xl text-sm shadow"
-              >
-                Cancel
-              </button>
+                  <button onClick={() => setEditing(true)}>
+                    <Image src="/edit.png" alt="edit" width={16} height={16} />
+                  </button>
+                </div>
+              </div>
+
+
+
+              <div>
+                <p className="text-sm text-[#646DE8] font-medium mb-2">Email</p>
+
+                <div className="border-b border-gray-400 pb-2">
+                  <input
+                    value={email}
+                    disabled
+                    className="w-full bg-transparent outline-none"
+                  />
+                </div>
+              </div>
+
+
+
+              <div>
+                <p className="text-sm text-[#646DE8] font-medium mb-2">Password</p>
+                <div className="border-b border-gray-400 pb-2 text-gray-600">
+                  ********
+                </div>
+              </div>
+
+
+
+              {editing && (
+                <div className="flex gap-4 pt-6">
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="bg-[#646DE8] text-white px-8 py-2 rounded-xl text-sm"
+                  >
+                    Save
+                  </button>
+
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="bg-white px-8 py-2 rounded-xl text-sm shadow"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+            </div>
+
+
+
+            <div className="flex flex-col items-center gap-4">
+
+              <div className="relative">
+
+                <div className="w-32 h-32 rounded-full bg-white shadow flex items-center justify-center">
+                  <Image src="/user.png" alt="avatar" width={40} height={40} />
+                </div>
+
+                <button
+                  onClick={() => setEditing(true)}
+                  className="absolute bottom-1 right-1 bg-white rounded-full p-1 shadow"
+                >
+                  <Image src="/edit.png" alt="edit" width={12} height={12} />
+                </button>
+
+              </div>
+
+              <p className="font-medium text-gray-700">{username}</p>
+
             </div>
 
           </div>
-
-
-          {/* RIGHT AVATAR */}
-          <div className="flex flex-col items-center justify-center gap-4">
-
-            <div className="w-32 h-32 rounded-full bg-white shadow flex items-center justify-center">
-              <Image src="/user.png" alt="avatar" width={40} height={40} />
-            </div>
-
-            <p className="font-medium text-gray-700">{username}</p>
-
-          </div>
-
         </div>
 
       </section>
@@ -111,45 +164,71 @@ export default function AccountPage() {
 
 
 
-function Sidebar({ onLogout }: { onLogout: () => void }) {
+
+
+
+
+
+function Sidebar({
+  collapsed,
+  onLogout,
+}: {
+  collapsed: boolean;
+  onLogout: () => void;
+}) {
   const router = useRouter();
 
   return (
-    <aside className="w-64 bg-[#646DE8] text-white flex flex-col items-center py-12 px-6">
+    <aside
+      className={`
+        ${collapsed ? "w-20" : "w-64"}
+        bg-[#646DE8]
+        text-white
+        flex flex-col items-center py-12 px-6
+        transition-all duration-300
+      `}
+    >
 
       <div className="flex flex-col items-center gap-3 mb-20">
         <Image src="/logo.png" alt="logo" width={36} height={36} />
-        <span className="text-xl font-bold">Flash</span>
+        {!collapsed && <span className="text-xl font-bold">Flash</span>}
       </div>
 
       <nav className="flex flex-col gap-10 w-full text-sm">
 
-        <SidebarItem icon="/home.png" label="Dashboard" onClick={() => router.push("/dashboard")} />
-        <SidebarItem icon="/course.png" label="Courses" />
-        <SidebarItem icon="/profile.png" label="Profile" />
+        <Item icon="/home.png" label="Dashboard" collapsed={collapsed} onClick={() => router.push("/dashboard")} />
+        <Item icon="/course.png" label="Courses" collapsed={collapsed} onClick={() => router.push("/courses")} />
+        <Item icon="/profile.png" label="Profile" collapsed={collapsed} />
 
       </nav>
 
       <button
         onClick={onLogout}
-        className="mt-auto bg-white text-[#646DE8] rounded-2xl py-3 w-full flex items-center justify-center gap-3 text-sm font-semibold hover:scale-105 transition"
+        className="mt-auto bg-white text-[#646DE8] rounded-2xl py-3 w-full flex items-center justify-center gap-3 text-sm font-semibold"
       >
         <Image src="/logout.png" alt="logout" width={16} height={16} />
-        Logout
+        {!collapsed && "Logout"}
       </button>
+
     </aside>
   );
 }
 
 
 
-function SidebarItem({
+
+
+
+
+function Item({
   icon,
   label,
+  collapsed,
   onClick,
 }: {
   icon: string;
   label: string;
+  collapsed: boolean;
   onClick?: () => void;
 }) {
   return (
@@ -158,45 +237,7 @@ function SidebarItem({
       className="flex items-center gap-4 cursor-pointer opacity-90 hover:opacity-100"
     >
       <Image src={icon} alt={label} width={18} height={18} />
-      {label}
-    </div>
-  );
-}
-
-
-
-function InputRow({
-  label,
-  value,
-  onChange,
-  type = "text",
-  disabled = false,
-}: {
-  label: string;
-  value: string;
-  onChange?: (v: string) => void;
-  type?: string;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-
-      <label className="text-sm text-[#646DE8] font-medium">{label}</label>
-
-      <div className="flex items-center border-b border-gray-400 pb-2 gap-3">
-
-        <input
-          type={type}
-          value={value}
-          disabled={disabled}
-          onChange={(e) => onChange?.(e.target.value)}
-          className="bg-transparent flex-1 outline-none"
-        />
-
-        <Image src="/edit.png" alt="edit" width={16} height={16} />
-
-      </div>
-
+      {!collapsed && label}
     </div>
   );
 }
