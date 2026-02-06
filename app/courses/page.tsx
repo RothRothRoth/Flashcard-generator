@@ -3,79 +3,105 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-type Course = {
+// Perfectly matches Supabase database structure
+interface Course {
+  id: string;
+  user_id: string;
   name: string;
-  time: string;
-};
+  created_at: string;
+}
 
 export default function CoursesPage() {
   const router = useRouter();
 
   const [collapsed, setCollapsed] = useState(false);
-
   const [courses, setCourses] = useState<Course[]>([]);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+
+  useEffect(() => {
+    fetchCourses();
+  }, []);
+
+  const fetchCourses = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    const { data } = await supabase
+      .from('courses')
+      .select('id, user_id, name, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    setCourses(data || []);
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/");
   };
 
-    
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!newName.trim()) return;
 
-    setCourses([
-      ...courses,
-      {
-        name: newName,
-        time: "Just now",
-      },
-    ]);
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) return;
 
-    setNewName("");
-    setCreating(false);
+    const { data: newCourse } = await supabase
+      .from('courses')
+      .insert([{ 
+        user_id: user.id, 
+        name: newName 
+      }])
+      .select()
+      .single();
+
+    if (newCourse) {
+      setCourses(prev => [newCourse, ...prev]);
+      setNewName("");
+      setCreating(false);
+    }
   };
 
-   
-  const handleDelete = (index: number) => {
+  const handleDelete = async (index: number) => {
+    const courseToDelete = courses[index];
+    
+    if (!courseToDelete) return;
+
+    await supabase
+      .from('courses')
+      .delete()
+      .eq('id', courseToDelete.id);
+
     setCourses(courses.filter((_, i) => i !== index));
   };
 
   return (
     <main className="min-h-screen flex bg-[#F6F7FB]">
-
-       
       <Sidebar collapsed={collapsed} onLogout={handleLogout} />
-
-       
       <section className="flex-1 px-20 py-10">
-
-         
         <div className="flex items-center justify-between">
-
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="bg-white shadow rounded-lg p-2"
           >
             <Image src="/menu.png" alt="menu" width={18} height={18} />
           </button>
-
           <button
             onClick={() => router.push("/account")}
             className="w-12 h-12 rounded-full bg-[#646DE8] shadow-md flex items-center justify-center"
           >
             <Image src="/profile.png" alt="profile" width={18} height={18} className="invert" />
           </button>
-
         </div>
 
-
-
-         
         <div className="mt-8 flex items-center gap-4">
           <Image
               src="/course.png"
@@ -84,7 +110,6 @@ export default function CoursesPage() {
               height={36}
               className="brightness-0"
           />
-
           <h1 className="text-4xl font-bold text-[#646DE8]">Courses</h1>
         </div>
 
@@ -92,13 +117,8 @@ export default function CoursesPage() {
           Total {courses.length}
         </p>
 
-
-
-         
         <div className="mt-8 flex items-center justify-between">
-
           <div className="flex gap-3">
-
             {!creating && (
               <button
                 onClick={() => setCreating(true)}
@@ -108,7 +128,6 @@ export default function CoursesPage() {
                 Create
               </button>
             )}
-
             {creating && (
               <>
                 <button
@@ -121,7 +140,6 @@ export default function CoursesPage() {
                   <Image src="/x.png" alt="cancel" width={14} height={14} />
                   Cancel
                 </button>
-
                 <button
                   onClick={handleSave}
                   className="bg-[#111827] text-white px-7 py-3 rounded-2xl flex items-center gap-2 shadow"
@@ -131,9 +149,7 @@ export default function CoursesPage() {
                 </button>
               </>
             )}
-
           </div>
-
           <div className="bg-white rounded-2xl px-5 py-3 shadow flex items-center gap-3 w-[260px]">
             <Image src="/search.png" alt="search" width={16} height={16} />
             <input
@@ -141,21 +157,13 @@ export default function CoursesPage() {
               className="outline-none text-sm flex-1 bg-transparent"
             />
           </div>
-
         </div>
 
-
-
-         
         <div className="mt-8 bg-gray-200 rounded-3xl p-8 h-[420px] overflow-y-auto shadow-xl">
-
-          
           {creating && (
             <div className="bg-white rounded-3xl p-6 mb-6 shadow flex items-center gap-4">
-
               <div className="flex-1">
                 <p className="text-sm font-medium mb-2">Course Name</p>
-
                 <div className="border rounded-xl px-4 py-2 flex items-center">
                   <input
                     placeholder="Enter course name"
@@ -166,13 +174,9 @@ export default function CoursesPage() {
                   <Image src="/edit.png" alt="edit" width={14} height={14} />
                 </div>
               </div>
-
             </div>
           )}
 
-
-
-           
           {courses.length === 0 && !creating && (
             <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-4">
               <Image src="/course.png" alt="empty" width={64} height={64} />
@@ -181,50 +185,31 @@ export default function CoursesPage() {
             </div>
           )}
 
-
-
-           
           <div className="space-y-6">
-
             {courses.map((c, i) => (
               <div
-                key={i}
+                key={c.id} // FIXED: Use id instead of index
                 className="bg-white rounded-3xl px-8 py-6 shadow flex items-center"
               >
-
-                
                 <p className="flex-1 font-medium text-gray-800">
                   Course : {c.name}
                 </p>
-
-                 
                 <div className="flex-1 flex justify-center">
                   <button className="bg-[#646DE8] text-white px-6 py-2 rounded-xl text-sm">
                     open
                   </button>
                 </div>
-
-                 
                 <button onClick={() => handleDelete(i)}>
                   <Image src="/trash.png" alt="delete" width={18} height={18} />
                 </button>
-
               </div>
             ))}
-
           </div>
-
         </div>
-
       </section>
     </main>
   );
 }
-
-
-
-
- 
 
 function Sidebar({
   collapsed,
@@ -245,20 +230,15 @@ function Sidebar({
         transition-all duration-300
       `}
     >
-
       <div className="flex flex-col items-center gap-3 mb-20">
         <Image src="/logo.png" alt="logo" width={36} height={36} />
         {!collapsed && <span className="text-xl font-bold">Flash</span>}
       </div>
-
       <nav className="flex flex-col gap-10 w-full text-sm">
-
         <Item icon="/home.png" label="Dashboard" collapsed={collapsed} onClick={() => router.push("/dashboard")} />
         <Item icon="/course.png" label="Courses" collapsed={collapsed} />
         <Item icon="/profile.png" label="Profile" collapsed={collapsed} onClick={() => router.push("/account")} />
-
       </nav>
-
       <button
         onClick={onLogout}
         className="mt-auto bg-white text-[#646DE8] rounded-2xl py-3 w-full flex items-center justify-center gap-3 text-sm font-semibold"
@@ -266,7 +246,6 @@ function Sidebar({
         <Image src="/logout.png" alt="logout" width={16} height={16} />
         {!collapsed && "Logout"}
       </button>
-
     </aside>
   );
 }
