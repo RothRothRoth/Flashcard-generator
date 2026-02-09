@@ -87,7 +87,7 @@ export default function CoursesPage() {
     <main className="min-h-screen flex bg-[#F6F7FB]">
       <Sidebar collapsed={collapsed} onLogout={handleLogout} />
       <section className="flex-1 px-4 sm:px-6 md:px-8 lg:px-10 py-6">
-        {/* TOP BAR - UNCHANGED POSITIONING (menu/profile at screen edges) */}
+         
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -103,7 +103,7 @@ export default function CoursesPage() {
           </button>
         </div>
 
-        {/* CONSTRAINED CONTENT CONTAINER - ONLY AFFECTS COURSES SECTION AND BELOW */}
+         
         <div className="max-w-4xl mx-auto w-full space-y-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white rounded-xl shadow-sm">

@@ -26,7 +26,7 @@ export default function CoursePage() {
   const [collapsed, setCollapsed] = useState(false);
   const [course, setCourse] = useState<Course | null>(null);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
-  const [editing, setEditing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [newQuestion, setNewQuestion] = useState("");
   const [newAnswer, setNewAnswer] = useState("");
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -106,11 +106,33 @@ export default function CoursePage() {
       setFlashcards(prev => [newCard, ...prev]);
       setNewQuestion("");
       setNewAnswer("");
-      setEditing(false);
+      setIsCreating(false);
       setNotification({ type: 'success', message: "Flashcard added successfully!" });
     } catch (error) {
       console.error('Error adding flashcard:', error);
       setNotification({ type: 'error', message: "Failed to add flashcard" });
+    }
+  };
+
+  const handleDeleteFlashcard = async (cardId: string) => {
+    if (!confirm("Are you sure you want to delete this flashcard?")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('flashcards')
+        .delete()
+        .eq('id', cardId);
+
+      if (error) throw error;
+
+      // Update flashcards list
+      setFlashcards(prev => prev.filter(card => card.id !== cardId));
+      setNotification({ type: 'success', message: "Flashcard deleted successfully!" });
+    } catch (error) {
+      console.error('Error deleting flashcard:', error);
+      setNotification({ type: 'error', message: "Failed to delete flashcard" });
     }
   };
 
@@ -167,30 +189,33 @@ export default function CoursePage() {
             <div className="flex items-center justify-between">
               <p className="text-lg font-medium">Let's Start Learning Algebra!</p>
               {flashcards.length > 0 && (
-                <button className="bg-[#111827] text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-[#0e1420] transition">
-                  <Image src="/play.png" alt="study" width={16} height={16} />
-                  Study
+              <button 
+                 onClick={() => router.push(`/courses/${courseId}/study`)}
+                   className="bg-[#111827] text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-[#0e1420] transition"
+                  >
+                <Image src="/play.png" alt="study" width={16} height={16} />
+                   Study
                 </button>
-              )}
+                )}
             </div>
           </div>
 
           {/* ADD FLASHCARD BUTTONS - SAME LAYOUT AS COURSES PAGE */}
           <div className="flex gap-3 mb-6">
-            {!editing && (
+            {!isCreating && (
               <button 
-                onClick={() => setEditing(true)}
+                onClick={() => setIsCreating(true)}
                 className="bg-[#646DE8] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#5a63d0] transition"
               >
                 <span className="text-xs">+</span> Add Flashcard
               </button>
             )}
             
-            {editing && (
+            {isCreating && (
               <>
                 <button 
                   onClick={() => {
-                    setEditing(false);
+                    setIsCreating(false);
                     setNewQuestion("");
                     setNewAnswer("");
                   }}
@@ -209,38 +234,84 @@ export default function CoursePage() {
             )}
           </div>
 
-          {/* FLASHCARD CONTAINER - SAME PROPORTIONS AS COURSES LIST */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-            {flashcards.length === 0 ? (
+          {/* FLASHCARD CONTAINER - MATCHING REFERENCE IMAGE */}
+          <div className="bg-[#F3F4F6] rounded-2xl p-4 max-h-[460px] overflow-y-auto">
+            {flashcards.length === 0 && !isCreating ? (
               <div className="text-center py-8 text-gray-500">
                 <p>No flashcards added yet</p>
               </div>
             ) : (
-              <div className="space-y-4 max-h-[460px] overflow-y-auto pr-4">
-                {flashcards.map((card, index) => (
-                  <div key={card.id} className="mb-6 last:mb-0">
-                    <div className="flex items-center justify-between mb-4">
+              <div className="space-y-4">
+                {/* NEW FLASHCARD FORM - ALWAYS AT THE TOP */}
+                {isCreating && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <span className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-lg">Q.{index + 1}</span>
+                        <span className="bg-gray-100 text-gray-800 text-sm px-3 py-1 rounded-full font-medium">Q.New</span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Front</label>
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 min-h-[60px]">
+                          <input
+                            type="text"
+                            value={newQuestion}
+                            onChange={(e) => setNewQuestion(e.target.value)}
+                            placeholder="Enter term or question..."
+                            className="w-full bg-transparent border-none focus:outline-none text-gray-900"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Back</label>
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 min-h-[60px]">
+                          <input
+                            type="text"
+                            value={newAnswer}
+                            onChange={(e) => setNewAnswer(e.target.value)}
+                            placeholder="Enter definition or answer..."
+                            className="w-full bg-transparent border-none focus:outline-none text-gray-900"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* EXISTING FLASHCARDS */}
+                {flashcards.map((card, index) => (
+                  <div 
+                    key={card.id} 
+                    className="bg-white rounded-xl border border-gray-200 p-4"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="bg-gray-100 text-gray-800 text-sm px-3 py-1 rounded-full font-medium">Q.{index + 1}</span>
                         <button className="p-1">
                           <Image src="/edit.png" alt="edit" width={14} height={14} className="text-gray-500" />
                         </button>
                       </div>
-                      <button className="text-gray-500 hover:text-gray-700">
+                      <button 
+                        onClick={() => handleDeleteFlashcard(card.id)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
                         <Image src="/trash.png" alt="delete" width={16} height={16} />
                       </button>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Front</label>
-                        <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Front</label>
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 min-h-[60px]">
                           {card.question}
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Back</label>
-                        <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Back</label>
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 min-h-[60px]">
                           {card.answer}
                         </div>
                       </div>
@@ -313,6 +384,7 @@ function Sidebar({
   );
 }
 
+ 
 function Item({
   icon,
   label,
@@ -330,6 +402,7 @@ function Item({
       className="flex items-center gap-4 cursor-pointer opacity-90 hover:opacity-100"
     >
       <Image src={icon} alt={label} width={18} height={18} />
+       
       {!collapsed && label}
     </div>
   );
