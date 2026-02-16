@@ -17,8 +17,8 @@ export default function VerificationPage() {
 
           <div>
             <h1 className="text-7xl font-extrabold leading-tight">
-              Simple to Use <br />
-              Remember <br />
+              Simple to Use <br/>
+              Remember <br/>
               Faster!
             </h1>
 

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Course = {
   name: string;
@@ -15,18 +15,126 @@ export default function DashboardPage() {
 
   const [courses] = useState<Course[]>([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [username, setUsername] = useState<string>("User");
+  const [loading, setLoading] = useState(true);
+
+  // 🔥 FETCH USERNAME FROM DATABASE
+  const fetchUsername = async () => {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('Error getting user:', userError);
+        setUsername("User");
+        setLoading(false);
+        return;
+      }
+
+      if (!user) {
+        console.log('No user found');
+        setUsername("User");
+        setLoading(false);
+        return;
+      }
+
+      console.log('User ID:', user.id);
+
+      // Fetch username from profiles table
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        setUsername("User");
+      } else if (profile && profile.username) {
+        console.log('Username found:', profile.username);
+        setUsername(profile.username);
+      } else {
+        console.log('No username in profile');
+        setUsername("User");
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      setUsername("User");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsername();
+
+    // 🔥 REAL-TIME USERNAME UPDATES
+    // Listen for changes to the profiles table
+    const setupRealtimeSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        const channel = supabase
+          .channel('profile-changes')
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'profiles',
+              filter: `id=eq.${user.id}`
+            },
+            (payload) => {
+              // Update username when profile changes
+              if (payload.new && payload.new.username) {
+                setUsername(payload.new.username);
+              }
+            }
+          )
+          .subscribe();
+
+        // Cleanup subscription on unmount
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      }
+    };
+
+    setupRealtimeSubscription();
+  }, []);
+
+  // 🔥 REFRESH USERNAME WHEN PAGE GETS FOCUS
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchUsername();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/");
   };
 
+  // Show loading state
+  if (loading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-[#F6F7FB]">
+        <div className="text-gray-500">Loading...</div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen flex bg-[#F6F7FB]">
       <Sidebar collapsed={collapsed} onLogout={handleLogout} />
       
       <section className="flex-1 px-4 sm:px-6 md:px-8 lg:px-10 py-6">
-        {/* TOP BAR - UNCHANGED POSITIONING */}
+        {/* TOP BAR */}
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -42,20 +150,23 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* CONSTRAINED CONTENT CONTAINER */}
         <div className="max-w-4xl mx-auto w-full space-y-8">
-          {/* WELCOME HEADER - SIMPLE CIRCLE ICON */}
+           
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-gray-200 flex items-center justify-center">
               <Image src="/user.png" alt="user" width={28} height={28} />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-[#646DE8]">Welcome! Roth</h1>
-              <p className="text-gray-500 mt-1 text-sm">Let's continue your learning journey</p>
+              <h1 className="text-3xl font-bold text-[#646DE8]">
+                Welcome, {username}!
+              </h1>
+              <p className="text-gray-500 mt-1 text-sm">
+                Let`s continue your learning journey
+              </p>
             </div>
           </div>
 
-          {/* ACTION SECTION */}
+          {/* CREATE COURSE BUTTON */}
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-700">
               Ready to start learning?
@@ -106,7 +217,7 @@ export default function DashboardPage() {
   );
 }
 
-/* SIDEBAR (unchanged functionality) */
+/* SIDEBAR COMPONENT */
 function Sidebar({
   collapsed,
   onLogout,
@@ -158,6 +269,7 @@ function Sidebar({
   );
 }
 
+/* SIDEBAR ITEM COMPONENT */
 function Item({
   icon,
   label,
@@ -180,7 +292,7 @@ function Item({
   );
 }
 
-/* COURSE CARD - MATCHES COURSES PAGE EXACTLY */
+/* COURSE CARD COMPONENT */
 function CourseCard({ name, time }: Course) {
   return (
     <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between border border-gray-100 hover:border-gray-200 transition-all">

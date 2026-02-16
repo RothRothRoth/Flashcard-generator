@@ -16,31 +16,31 @@ interface Course {
 export default function CoursesPage() {
   const router = useRouter();
 
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(false);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState<boolean>(false);
+  const [newName, setNewName] = useState<string>("");
 
   useEffect(() => {
+    const fetchCourses = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      const { data } = await supabase
+        .from('courses')
+        .select('id, user_id, name, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      setCourses(data || []);
+    };
+
     fetchCourses();
-  }, []);
-
-  const fetchCourses = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    const { data } = await supabase
-      .from('courses')
-      .select('id, user_id, name, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    setCourses(data || []);
-  };
+  }, [router]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -97,7 +97,7 @@ export default function CoursesPage() {
           </button>
           <button
             onClick={() => router.push("/account")}
-            className="w-12 h-12 rounded-full bg-[#646DE8] shadow-md flex items-center justify-center"
+            className="w-12 h-12 rounded-full bg-[#646DE8] shadow-md flex items-center justify-center hover:scale-105 transition"
           >
             <Image src="/profile.png" alt="profile" width={18} height={18} className="invert" />
           </button>
@@ -186,7 +186,7 @@ export default function CoursesPage() {
                   <Image src="/course.png" alt="empty" width={28} height={28} className="opacity-70" />
                 </div>
                 <p className="font-medium text-gray-600">No courses created yet</p>
-                <p className="text-sm text-gray-400">Click "Create Course" to get started</p>
+                <p className="text-sm text-gray-400">Click Create Course to get started</p>
               </div>
             )}
 
@@ -206,21 +206,21 @@ export default function CoursesPage() {
                       })}
                     </p>
                   </div>
-<div className="flex items-center gap-6 flex-shrink-0">
-  <button 
-    onClick={() => router.push(`/courses/${c.id}`)}
-    className="bg-[#646DE8] text-white text-sm px-4 py-1.5 rounded-lg hover:bg-[#5a63d0] transition shadow-sm min-w-[65px]"
-  >
-    Open
-  </button>
-  <button 
-    onClick={() => handleDelete(i)}
-    className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
-    aria-label="Delete course"
-  >
-    <Image src="/trash.png" alt="delete" width={16} height={16} />
-  </button>
-</div>
+                  <div className="flex items-center gap-6 flex-shrink-0">
+                    <button 
+                      onClick={() => router.push(`/courses/${c.id}`)}
+                      className="bg-[#646DE8] text-white text-sm px-4 py-1.5 rounded-lg hover:bg-[#5a63d0] transition shadow-sm min-w-[65px]"
+                    >
+                      Open
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(i)}
+                      className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                      aria-label="Delete course"
+                    >
+                      <Image src="/trash.png" alt="delete" width={16} height={16} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -261,7 +261,7 @@ function Sidebar({
       </nav>
       <button
         onClick={onLogout}
-        className="mt-auto bg-white text-[#646DE8] rounded-2xl py-3 w-full flex items-center justify-center gap-3 text-sm font-semibold"
+        className="mt-auto bg-white text-[#646DE8] rounded-2xl py-3 w-full flex items-center justify-center gap-3 text-sm font-semibold hover:bg-gray-100 transition"
       >
         <Image src="/logout.png" alt="logout" width={16} height={16} />
         {!collapsed && "Logout"}
@@ -282,7 +282,7 @@ function Item({
   onClick?: () => void;
 }) {
   return (
-    <div onClick={onClick} className="flex items-center gap-4 cursor-pointer">
+    <div onClick={onClick} className="flex items-center gap-4 cursor-pointer opacity-90 hover:opacity-100 transition">
       <Image src={icon} alt={label} width={18} height={18} />
       {!collapsed && label}
     </div>
