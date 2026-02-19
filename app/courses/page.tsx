@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useState, useEffect } from "react";
 
-// Perfectly matches Supabase database structure
 interface Course {
   id: string;
   user_id: string;
@@ -51,15 +50,11 @@ export default function CoursesPage() {
     if (!newName.trim()) return;
 
     const { data: { user } } = await supabase.auth.getUser();
-    
     if (!user) return;
 
     const { data: newCourse } = await supabase
       .from('courses')
-      .insert([{ 
-        user_id: user.id, 
-        name: newName 
-      }])
+      .insert([{ user_id: user.id, name: newName }])
       .select()
       .single();
 
@@ -72,22 +67,53 @@ export default function CoursesPage() {
 
   const handleDelete = async (index: number) => {
     const courseToDelete = courses[index];
-    
     if (!courseToDelete) return;
 
-    await supabase
-      .from('courses')
-      .delete()
-      .eq('id', courseToDelete.id);
+    await supabase.from('courses').delete().eq('id', courseToDelete.id);
+
+    // Also clean up any course_access records for this course
+    await supabase.from('course_access').delete().eq('course_id', courseToDelete.id);
 
     setCourses(courses.filter((_, i) => i !== index));
+  };
+
+  const handleOpen = async (course: Course) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Upsert access record — updates accessed_at if already exists
+    await supabase
+      .from('course_access')
+      .upsert(
+        {
+          user_id: user.id,
+          course_id: course.id,
+          accessed_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,course_id' }
+      );
+
+    // Fetch all access records ordered by newest
+    const { data: allAccess } = await supabase
+      .from('course_access')
+      .select('id')
+      .eq('user_id', user.id)
+      .order('accessed_at', { ascending: false });
+
+    // Delete anything beyond the 5 most recent
+    if (allAccess && allAccess.length > 5) {
+      const toDelete = allAccess.slice(5).map((r) => r.id);
+      await supabase.from('course_access').delete().in('id', toDelete);
+    }
+
+    router.push(`/courses/${course.id}`);
   };
 
   return (
     <main className="min-h-screen flex bg-[#F6F7FB]">
       <Sidebar collapsed={collapsed} onLogout={handleLogout} />
       <section className="flex-1 px-4 sm:px-6 md:px-8 lg:px-10 py-6">
-         
+
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -103,17 +129,10 @@ export default function CoursesPage() {
           </button>
         </div>
 
-         
         <div className="max-w-4xl mx-auto w-full space-y-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white rounded-xl shadow-sm">
-              <Image
-                src="/course.png"
-                alt="courses"
-                width={28}
-                height={28}
-                className="brightness-0"
-              />
+              <Image src="/course.png" alt="courses" width={28} height={28} className="brightness-0" />
             </div>
             <h1 className="text-3xl font-bold text-[#646DE8]">Courses</h1>
           </div>
@@ -131,10 +150,7 @@ export default function CoursesPage() {
               ) : (
                 <>
                   <button
-                    onClick={() => {
-                      setCreating(false);
-                      setNewName("");
-                    }}
+                    onClick={() => { setCreating(false); setNewName(""); }}
                     className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm hover:bg-gray-300 transition"
                   >
                     <Image src="/x.png" alt="cancel" width={14} height={14} />
@@ -170,7 +186,7 @@ export default function CoursesPage() {
                     onChange={(e) => setNewName(e.target.value)}
                     className="flex-1 outline-none bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#646DE8] focus:border-transparent"
                   />
-                  <button 
+                  <button
                     onClick={handleSave}
                     className="bg-[#646DE8] text-white px-5 rounded-lg flex items-center justify-center hover:bg-[#5a63d0] transition min-w-[80px] text-sm font-medium"
                   >
@@ -193,27 +209,27 @@ export default function CoursesPage() {
             <div className="space-y-3">
               {courses.map((c, i) => (
                 <div
-                  key={c.id} 
+                  key={c.id}
                   className="bg-gray-50 rounded-xl p-4 flex items-center justify-between border border-gray-100 hover:border-gray-200 transition-all"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-800 truncate">Course: {c.name}</p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Created {new Date(c.created_at).toLocaleDateString('en-US', { 
-                        month: 'short', 
+                      Created {new Date(c.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
                         day: 'numeric',
-                        year: 'numeric'
+                        year: 'numeric',
                       })}
                     </p>
                   </div>
                   <div className="flex items-center gap-6 flex-shrink-0">
-                    <button 
-                      onClick={() => router.push(`/courses/${c.id}`)}
+                    <button
+                      onClick={() => handleOpen(c)}
                       className="bg-[#646DE8] text-white text-sm px-4 py-1.5 rounded-lg hover:bg-[#5a63d0] transition shadow-sm min-w-[65px]"
                     >
                       Open
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleDelete(i)}
                       className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
                       aria-label="Delete course"
@@ -231,23 +247,14 @@ export default function CoursesPage() {
   );
 }
 
-function Sidebar({
-  collapsed,
-  onLogout,
-}: {
-  collapsed: boolean;
-  onLogout: () => void;
-}) {
+function Sidebar({ collapsed, onLogout }: { collapsed: boolean; onLogout: () => void }) {
   const router = useRouter();
 
   return (
     <aside
       className={`
         ${collapsed ? "w-20" : "w-64"}
-        bg-[#646DE8]
-        text-white
-        flex flex-col items-center py-12 px-6
-        transition-all duration-300
+        bg-[#646DE8] text-white flex flex-col items-center py-12 px-6 transition-all duration-300
       `}
     >
       <div className="flex flex-col items-center gap-3 mb-20">
@@ -270,17 +277,7 @@ function Sidebar({
   );
 }
 
-function Item({
-  icon,
-  label,
-  collapsed,
-  onClick,
-}: {
-  icon: string;
-  label: string;
-  collapsed: boolean;
-  onClick?: () => void;
-}) {
+function Item({ icon, label, collapsed, onClick }: { icon: string; label: string; collapsed: boolean; onClick?: () => void }) {
   return (
     <div onClick={onClick} className="flex items-center gap-4 cursor-pointer opacity-90 hover:opacity-100 transition">
       <Image src={icon} alt={label} width={18} height={18} />

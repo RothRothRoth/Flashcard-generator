@@ -30,21 +30,19 @@ export default function CoursePage() {
   const [newQuestion, setNewQuestion] = useState("");
   const [newAnswer, setNewAnswer] = useState("");
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [trackingAccess, setTrackingAccess] = useState(false);
 
-  // Extract course ID from URL
   const courseId = pathname.split('/').pop() || '';
 
   useEffect(() => {
     const loadCourse = async () => {
       try {
-        // Get current user
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           router.push("/login");
           return;
         }
 
-        // Get course data
         const { data: courseData, error: courseError } = await supabase
           .from('courses')
           .select('id, name, created_at, user_id')
@@ -60,7 +58,6 @@ export default function CoursePage() {
 
         setCourse(courseData);
 
-        // Get flashcards for this course
         const { data: flashcardsData, error: flashcardsError } = await supabase
           .from('flashcards')
           .select('id, question, answer, created_at, course_id')
@@ -88,6 +85,40 @@ export default function CoursePage() {
     router.push("/");
   };
 
+  const trackCourseAccess = async () => {
+    if (!course || trackingAccess) return;
+    
+    try {
+      setTrackingAccess(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('course_access')
+        .upsert({
+          user_id: user.id,
+          course_id: course.id,
+          course_name: course.name,
+          accessed_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,course_id'
+        });
+
+      if (error) {
+        console.error('Error tracking access:', error);
+      }
+    } catch (error) {
+      console.error('Error in trackCourseAccess:', error);
+    } finally {
+      setTrackingAccess(false);
+    }
+  };
+
+  const handleStudy = async () => {
+    await trackCourseAccess();
+    router.push(`/courses/${courseId}/study`);
+  };
+
   const handleAddFlashcard = async () => {
     if (!newQuestion.trim() || !newAnswer.trim()) {
       setNotification({ type: 'error', message: "Both question and answer are required" });
@@ -111,7 +142,6 @@ export default function CoursePage() {
 
       if (error) throw error;
 
-      // Update flashcards list
       setFlashcards(prev => [newCard, ...prev]);
       setNewQuestion("");
       setNewAnswer("");
@@ -136,7 +166,6 @@ export default function CoursePage() {
 
       if (error) throw error;
 
-      // Update flashcards list
       setFlashcards(prev => prev.filter(card => card.id !== cardId));
       setNotification({ type: 'success', message: "Flashcard deleted successfully!" });
     } catch (error) {
@@ -145,7 +174,6 @@ export default function CoursePage() {
     }
   };
 
-  // Auto-dismiss notifications
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => {
@@ -160,7 +188,6 @@ export default function CoursePage() {
       <Sidebar collapsed={collapsed} onLogout={handleLogout} />
       
       <section className="flex-1 px-4 sm:px-6 md:px-8 lg:px-10 py-6">
-        {/* NOTIFICATION */}
         {notification && (
           <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg ${
             notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
@@ -169,7 +196,6 @@ export default function CoursePage() {
           </div>
         )}
 
-        {/* TOP BAR */}
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -185,9 +211,7 @@ export default function CoursePage() {
           </button>
         </div>
 
-        {/* CENTERED CONTENT */}
         <div className="max-w-4xl mx-auto w-full">
-          {/* COURSE HEADER */}
           <div className="mb-6">
             <div className="flex items-center gap-4 mb-2">
               <div className="bg-white rounded-xl p-2 border border-gray-200">
@@ -200,7 +224,6 @@ export default function CoursePage() {
             <p className="text-gray-500">{flashcards.length} {flashcards.length === 1 ? 'card' : 'cards'}</p>
           </div>
 
-          {/* WELCOME MESSAGE */}
           <div className="bg-gray-100 rounded-xl p-6 mb-6">
             <div className="flex items-center justify-between">
               <p className="text-lg font-medium">
@@ -208,17 +231,29 @@ export default function CoursePage() {
               </p>
               {flashcards.length > 0 && (
                 <button 
-                  onClick={() => router.push(`/courses/${courseId}/study`)}
-                  className="bg-[#111827] text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-[#0e1420] transition"
+                  onClick={handleStudy}
+                  disabled={trackingAccess}
+                  className="bg-[#111827] text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-[#0e1420] transition disabled:opacity-50"
                 >
-                  <Image src="/play.png" alt="study" width={16} height={16} />
-                  Study
+                  {trackingAccess ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Image src="/play.png" alt="study" width={16} height={16} />
+                      Study
+                    </>
+                  )}
                 </button>
               )}
             </div>
           </div>
 
-          {/* ADD FLASHCARD BUTTONS */}
           <div className="flex gap-3 mb-6">
             {!isCreating && (
               <button 
@@ -252,7 +287,6 @@ export default function CoursePage() {
             )}
           </div>
 
-          {/* FLASHCARD CONTAINER */}
           <div className="bg-[#F3F4F6] rounded-2xl p-4 max-h-[460px] overflow-y-auto">
             {flashcards.length === 0 && !isCreating ? (
               <div className="text-center py-12 text-gray-500">
@@ -261,7 +295,6 @@ export default function CoursePage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {/* NEW FLASHCARD FORM */}
                 {isCreating && (
                   <div className="bg-white rounded-xl border border-gray-200 p-4">
                     <div className="flex items-center justify-between mb-3">
@@ -300,7 +333,6 @@ export default function CoursePage() {
                   </div>
                 )}
                 
-                {/* EXISTING FLASHCARDS */}
                 {flashcards.map((card, index) => (
                   <div 
                     key={card.id} 
@@ -343,7 +375,6 @@ export default function CoursePage() {
   );
 }
 
-// SIDEBAR COMPONENT
 function Sidebar({ 
   collapsed, 
   onLogout 
