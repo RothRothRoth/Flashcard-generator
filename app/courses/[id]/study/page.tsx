@@ -44,10 +44,10 @@ export default function StudyPage() {
           return;
         }
 
-        // Get course data
+        // Get course data ✅ FIXED: Added user_id to select
         const { data: courseData } = await supabase
           .from('courses')
-          .select('id, name, created_at')
+          .select('id, name, created_at, user_id')
           .eq('id', courseId)
           .eq('user_id', user.id)
           .single();
@@ -59,10 +59,10 @@ export default function StudyPage() {
 
         setCourse(courseData);
 
-        // Get flashcards for this course
+        // Get flashcards for this course ✅ FIXED: Added course_id to select
         const { data: flashcardsData } = await supabase
           .from('flashcards')
-          .select('id, question, answer, created_at')
+          .select('id, course_id, question, answer, created_at')
           .eq('course_id', courseId)
           .order('created_at', { ascending: true });
 
@@ -314,7 +314,7 @@ export default function StudyPage() {
                     className="bg-red-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-red-600 transition shadow-md flex items-center gap-2"
                   >
                     <span className="text-lg">✗</span>
-                    I Don`t Know
+                    I Don&apos;t Know
                   </button>
                 )}
                 
